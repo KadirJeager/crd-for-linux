@@ -19,6 +19,7 @@ readonly USER_UNIT="${XDG_CONFIG_HOME:-${HOME}/.config}/systemd/user/crd-gnome.s
 
 DENEME=0
 DENEYSEL=0
+EVET=0
 
 case "${LC_ALL:-${LC_MESSAGES:-${LANG:-}}}" in
   tr*) TR=1 ;;
@@ -86,13 +87,51 @@ dagitim() {
   esac
 }
 
-paket_onerisi() {
+# Dağıtımın kurulum komutu, her kelime ayrı satırda. Tanınmazsa boş.
+paket_komutu() {
   case "$(dagitim)" in
-    arch) echo "sudo pacman -S --needed base-devel wayland wayland-protocols pipewire libei libxkbcommon libxkbcommon-x11 libx11 libxcb glib2 xdg-dbus-proxy acl python curl libarchive" ;;
-    debian) echo "sudo apt install build-essential pkg-config libwayland-dev wayland-protocols libpipewire-0.3-dev libei-dev libeis-dev libxkbcommon-dev libxkbcommon-x11-dev libx11-dev libx11-xcb-dev libxcb1-dev libxcb-xkb-dev libglib2.0-dev xdg-dbus-proxy acl pipewire-bin python3 curl libarchive-tools" ;;
-    fedora) echo "sudo dnf install gcc make pkgconf wayland-devel wayland-protocols-devel pipewire-devel libei-devel libxkbcommon-devel libxkbcommon-x11-devel libX11-devel libxcb-devel glib2-devel xdg-dbus-proxy acl pipewire-utils python3 curl bsdtar" ;;
-    *) m "dağıtım tanınmadı; eksikleri kendi paket yöneticinizle kurun" "distribution not recognized; install the missing pieces with your package manager"; echo ;;
+    arch) printf '%s\n' sudo pacman -S --needed base-devel wayland wayland-protocols pipewire libei libxkbcommon libxkbcommon-x11 libx11 libxcb glib2 xdg-dbus-proxy acl python curl libarchive ;;
+    debian) printf '%s\n' sudo apt-get install -y build-essential pkg-config libwayland-dev wayland-protocols libpipewire-0.3-dev libei-dev libeis-dev libxkbcommon-dev libxkbcommon-x11-dev libx11-dev libx11-xcb-dev libxcb1-dev libxcb-xkb-dev libglib2.0-dev xdg-dbus-proxy acl pipewire-bin python3 curl libarchive-tools ;;
+    fedora) printf '%s\n' sudo dnf install -y gcc make pkgconf wayland-devel wayland-protocols-devel pipewire-devel libei-devel libxkbcommon-devel libxkbcommon-x11-devel libX11-devel libxcb-devel glib2-devel xdg-dbus-proxy acl pipewire-utils python3 curl bsdtar ;;
   esac
+}
+
+paket_onerisi() {
+  local komut
+  komut="$(paket_komutu | tr '\n' ' ')"
+  if [[ -n "${komut}" ]]; then
+    echo "${komut}"
+  else
+    m "dağıtım tanınmadı; eksikleri kendi paket yöneticinizle kurun" "distribution not recognized; install the missing pieces with your package manager"; echo
+  fi
+}
+
+# /dev/tty gerçekten açılabiliyorsa 0 (boru ve servis içinde açılmayabilir).
+terminal_var() { { : </dev/tty; } 2>/dev/null; }
+
+# Terminalden evet/hayır sorar; boru ile çalışırken de /dev/tty'den okur.
+# --evet verilmişse sormaz. Terminal yoksa hayır sayılır.
+sor() {
+  local cevap=""
+  ((EVET)) && return 0
+  terminal_var || return 1
+  printf '%s [e/H] ' "$1" >/dev/tty
+  read -r cevap </dev/tty || return 1
+  [[ "${cevap,,}" == e* || "${cevap,,}" == y* ]]
+}
+
+# Denetim geçmezse dağıtımın paketlerini sorarak kurar, sonra yeniden denetler.
+paketleri_hazirla() {
+  local -a komut=()
+  denetle && return 0
+  mapfile -t komut < <(paket_komutu)
+  ((${#komut[@]})) || hata "$(m "eksik paketleri kurun ve yeniden çalıştırın" "install the missing packages and run again")"
+  if sor "$(m "Eksik paketler şu komutla kurulsun mu?" "Install the missing packages with this command?") ${komut[*]}"; then
+    yap "${komut[@]}"
+    ((DENEME)) || denetle || hata "$(m "paketler kuruldu ama denetim yine geçmedi" "packages installed but the check still fails")"
+  else
+    hata "$(m "eksik paketler kurulmadı" "missing packages were not installed")"
+  fi
 }
 
 denetle() {
@@ -185,6 +224,10 @@ birim_kur_gnome() {
   yap systemctl --user enable --now crd-gnome.service
 }
 
+# Google'ın headless sayfasındaki komuttan --code ve --redirect-url alınır;
+# start-host bu depodaki ikiliyle ve --no-start ile çalışır, böylece Google'ın
+# sanal X açan daemon'ı kurulmaz. PIN'i start-host kendisi sorar. Kod hiçbir
+# yere yazılmaz.
 kayit_adimi() {
   shopt -s nullglob
   local kayit=("${HOME}/.config/chrome-remote-desktop/"host#*.json)
@@ -193,20 +236,75 @@ kayit_adimi() {
     bilgi "$(m "host kaydı var" "host is registered"): ${kayit[0]}"
     return
   fi
-  cat <<EOF
-• Host henüz Google hesabınıza kayıtlı değil. Bir kez:
-  1. https://remotedesktop.google.com/headless adresinde "Debian Linux" komutunu kopyalayın.
-  2. Komuttaki ikili yolunu şununla değiştirip çalıştırın:
-       ${CRD_DIR}/start-host
-     (--code, --redirect-url ve --name kısmı aynı kalır; PIN'i komut sorar.)
-  Kod ve PIN hiçbir günlüğe yazılmaz.
-EOF
+  if ((DENEME)) || ! terminal_var; then
+    kayit_elle
+    return
+  fi
+  local satir="" kod="" yonlendirme="" ad
+  if ((TR)); then
+    printf '%s\n' "• Host'u Google hesabınıza kaydedin:" \
+      "  1. https://remotedesktop.google.com/headless adresini açın: Begin › Next › Authorize." \
+      "  2. \"Debian Linux\" komutunu kopyalayıp aşağıya yapıştırın (görünmez), Enter'a basın." >/dev/tty
+  else
+    printf '%s\n' "• Register the host with your Google account:" \
+      "  1. Open https://remotedesktop.google.com/headless: Begin › Next › Authorize." \
+      "  2. Copy the \"Debian Linux\" command and paste it below (hidden), then press Enter." >/dev/tty
+  fi
+  printf '> ' >/dev/tty
+  read -rs satir </dev/tty || true
+  echo >/dev/tty
+  kod="$(sed -n 's/.*--code="\([^"]*\)".*/\1/p' <<<"${satir}")"
+  yonlendirme="$(sed -n 's/.*--redirect-url="\([^"]*\)".*/\1/p' <<<"${satir}")"
+  satir=""
+  if [[ -z "${kod}" || -z "${yonlendirme}" ]]; then
+    echo "$(m "komutta --code ya da --redirect-url bulunamadı" "--code or --redirect-url not found in the command")" >&2
+    kayit_elle
+    return
+  fi
+  ad="$(hostname)"
+  bilgi "$(m "kaydediliyor; PIN'i start-host soracak" "registering; start-host will ask for the PIN")"
+  DISPLAY= "${CRD_DIR}/start-host" --code="${kod}" --redirect-url="${yonlendirme}" \
+    --name="${ad}" --no-start </dev/tty ||
+    hata "$(m "kayıt başarısız (kod tek kullanımlık; sayfadan yenisini alın)" "registration failed (the code is single-use; get a new one from the page)")"
+  kod=""
+  shopt -s nullglob
+  kayit=("${HOME}/.config/chrome-remote-desktop/"host#*.json)
+  shopt -u nullglob
+  ((${#kayit[@]})) || hata "$(m "start-host bitti ama kayıt dosyası yok" "start-host finished but wrote no registration file")"
+  bilgi "$(m "host kaydedildi" "host registered"): ${kayit[0]}"
+  if [[ "$(ortam)" == gnome ]]; then
+    systemctl --user restart crd-gnome.service
+  else
+    sudo systemctl restart crd-koltuk.service
+  fi
+}
+
+# Terminal yoksa ya da yapıştırılan komut okunamazsa elle kayıt adımları.
+kayit_elle() {
+  if ((TR)); then
+    printf '%s\n' "• Host henüz Google hesabınıza kayıtlı değil. Bir kez:" \
+      "  1. https://remotedesktop.google.com/headless adresinde \"Debian Linux\" komutunu kopyalayın." \
+      "  2. Komuttaki ikili yolunu şununla değiştirip çalıştırın:" \
+      "       DISPLAY= ${CRD_DIR}/start-host ... --no-start" \
+      "     (--code, --redirect-url ve --name aynı kalır; PIN'i komut sorar.)" \
+      "  Sonra: sudo systemctl restart crd-koltuk" \
+      "  Kod ve PIN hiçbir günlüğe yazılmaz."
+  else
+    printf '%s\n' "• The host is not registered with your Google account yet. Once:" \
+      "  1. Copy the \"Debian Linux\" command from https://remotedesktop.google.com/headless" \
+      "  2. Replace the binary path in it with this one and run it:" \
+      "       DISPLAY= ${CRD_DIR}/start-host ... --no-start" \
+      "     (--code, --redirect-url and --name stay the same; the command asks for the PIN.)" \
+      "  Then: sudo systemctl restart crd-koltuk" \
+      "  The code and PIN are never written to any log."
+  fi
 }
 
 kur() {
   local o
   o="$(ortam)"
   ortam_kapisi "${o}"
+  paketleri_hazirla
   paketi_ac
   bilgi "$(m derleniyor building)"
   yap make -C "${ROOT}" -j"$(nproc)"
@@ -240,13 +338,14 @@ kaldir() {
 
 main() {
   local komut="${1:-}"
-  [[ -n "${komut}" ]] || hata "$(m kullanım usage): $0 check|install|uninstall [--dry-run] [--experimental]  (denetle|kur|kaldir [--deneme] [--deneysel])"
+  [[ -n "${komut}" ]] || hata "$(m kullanım usage): $0 check|install|uninstall [--dry-run] [--experimental] [--yes]  (denetle|kur|kaldir [--deneme] [--deneysel] [--evet])"
   shift
   local a
   for a in "$@"; do
     case "${a}" in
       --deneme|--dry-run) DENEME=1 ;;
       --deneysel|--experimental) DENEYSEL=1 ;;
+      --evet|--yes) EVET=1 ;;
       *) hata "$(m "bilinmeyen seçenek" "unknown option"): ${a}" ;;
     esac
   done

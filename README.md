@@ -60,24 +60,32 @@ Source comments and log messages are in Turkish.
 
 ## Installation
 
-You need a Wayland session, PipeWire + WirePlumber, libei, xdg-dbus-proxy and a C toolchain. Google's CRD package is not in this repository; the installer downloads the official package from Google to your machine and unpacks it without installing it system-wide.
+One command, as the user whose screen will be shared (not root):
 
 ```bash
-./kur.sh check
+curl -fsSL https://raw.githubusercontent.com/KadirJeager/crd-for-linux/main/install.sh | bash
 ```
+
+It downloads this project to `~/.local/share/crd-for-linux`, offers to install missing packages (Arch, Debian/Ubuntu, Fedora), downloads Google's official CRD package to your machine and unpacks it there without installing it system-wide, builds, installs the service, and finally registers the host with your Google account: open [remotedesktop.google.com/headless](https://remotedesktop.google.com/headless), click Begin › Next › Authorize, copy the "Debian Linux" command and paste it when asked. Only the code from that command is used; Google's own daemon (which would start a virtual desktop) is not installed. The PIN is asked by Google's tool and is never logged.
+
+Run the same command again to update. Options go after `bash -s --`:
 
 ```bash
-./kur.sh install
+curl -fsSL https://raw.githubusercontent.com/KadirJeager/crd-for-linux/main/install.sh | bash -s -- --experimental
 ```
 
-Add `--dry-run` to any command to only print what it would do. On anything other than Hyprland the script warns and continues only with `--experimental`. (Turkish aliases also work: `denetle`, `kur`, `kaldir`, `--deneme`, `--deneysel`.)
+| Option | Meaning |
+|---|---|
+| `--experimental` | Required on anything other than Hyprland (untested environments). |
+| `--dry-run` | Only print what would be done. |
+| `--yes` | Do not ask before installing packages. |
 
-Registering the host with your Google account is a separate step: take the command from [remotedesktop.google.com/headless](https://remotedesktop.google.com/headless) and run it with the binary path the installer prints. The code and PIN are never written to any log.
+From a clone you can also run `./kur.sh check`, `./kur.sh install`, `./kur.sh uninstall` (Turkish aliases: `denetle`, `kur`, `kaldir`, `--deneme`, `--deneysel`, `--evet`).
 
 To remove:
 
 ```bash
-./kur.sh uninstall
+~/.local/share/crd-for-linux/kur.sh uninstall
 ```
 
 ## Settings

@@ -56,24 +56,32 @@ crd-koltuk (systemd sistem birimi)
 
 ## Kurulum
 
-Gereken: Wayland oturumu, PipeWire + WirePlumber, libei, xdg-dbus-proxy, derleyici. Google'ın CRD paketi depoda yok; kurulum betiği resmî paketi Google'dan kendi makinenize indirir ve sisteme kurmadan açar.
+Tek komut; ekranı paylaşılacak kullanıcıyla çalıştırın (root değil):
 
 ```bash
-./kur.sh denetle
+curl -fsSL https://raw.githubusercontent.com/KadirJeager/crd-for-linux/main/install.sh | bash
 ```
+
+Projeyi `~/.local/share/crd-for-linux` altına indirir, eksik paketleri sorarak kurar (Arch, Debian/Ubuntu, Fedora), Google'ın resmî CRD paketini makinenize indirip sisteme kurmadan açar, derler, servisi kurar ve en sonda host'u Google hesabınıza kaydeder: [remotedesktop.google.com/headless](https://remotedesktop.google.com/headless) sayfasında Begin › Next › Authorize deyin, "Debian Linux" komutunu kopyalayıp sorulduğunda yapıştırın. Komuttan yalnız kod kullanılır; Google'ın sanal masaüstü açan kendi servisi kurulmaz. PIN'i Google'ın aracı sorar ve hiçbir günlüğe yazılmaz.
+
+Güncellemek için aynı komutu yeniden çalıştırın. Seçenekler `bash -s --` sonrasına yazılır:
 
 ```bash
-./kur.sh kur
+curl -fsSL https://raw.githubusercontent.com/KadirJeager/crd-for-linux/main/install.sh | bash -s -- --deneysel
 ```
 
-Her komut `--deneme` ile yalnız ne yapacağını yazar. Hyprland dışındaki ortamlarda betik uyarır ve yalnız `--deneysel` ile devam eder. İngilizce adlar da çalışır: `check`, `install`, `uninstall`, `--dry-run`, `--experimental`. Mesajlar sistem dili Türkçeyse Türkçe, değilse İngilizcedir.
+| Seçenek | Anlamı |
+|---|---|
+| `--deneysel` (`--experimental`) | Hyprland dışındaki (test edilmemiş) ortamlarda gerekir. |
+| `--deneme` (`--dry-run`) | Yalnız ne yapılacağını yazar. |
+| `--evet` (`--yes`) | Paket kurmadan önce sormaz. |
 
-Host'un Google hesabınıza kaydı ayrı bir adımdır: [remotedesktop.google.com/headless](https://remotedesktop.google.com/headless) sayfasındaki komutu kurulum betiğinin yazdığı yoldaki ikiliyle çalıştırırsınız. PIN ve kod hiçbir günlüğe yazılmaz.
+Bir klonun içinden `./kur.sh denetle`, `./kur.sh kur`, `./kur.sh kaldir` de kullanılabilir (İngilizce adlar: `check`, `install`, `uninstall`). Mesajlar sistem dili Türkçeyse Türkçe, değilse İngilizcedir.
 
 Kaldırmak için:
 
 ```bash
-./kur.sh kaldir
+~/.local/share/crd-for-linux/kur.sh kaldir
 ```
 
 ## Ayarlar
