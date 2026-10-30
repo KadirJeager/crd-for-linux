@@ -1,100 +1,107 @@
 # CRD for Linux
 
+**English** · [Türkçe](README.tr.md)
+
 **Chrome Remote Desktop with your existing Wayland session — no virtual desktop, no Xvfb.**
 
-Google's Chrome Remote Desktop host on Linux normally starts a separate virtual X session. This project runs the unmodified official host against the session you are already using: you see your real desktop, type with your real keyboard layout, share the clipboard and hear your speakers — from the web client or the mobile app, without a permission dialog. It also works on the login screen: the host starts on the greeter, you type your password remotely and the same connection continues into your desktop.
+Google's Chrome Remote Desktop host on Linux normally starts a separate virtual X session. This project runs the unmodified official host against the session you are already using: from the web client or the mobile app, without a permission dialog, you see your real desktop, type with your own keyboard layout, share the clipboard and hear your speakers. It also works on the login screen: the host starts on the greeter, you type your password remotely and the same connection continues into your desktop.
 
-> Bu proje, Chrome Remote Desktop'ı açık olan Wayland oturumuna bağlar. Sanal masaüstü açmaz, Google'ın ikilisine yama yapmaz. Ayrıntılar aşağıda Türkçe.
+## Status
 
-## Durum
-
-| Ortam | Durum |
+| Environment | Status |
 |---|---|
-| Hyprland 0.56 (CachyOS, greetd + dms-greeter) | **Çalışıyor.** Görüntü, fare, klavye (Türkçe dahil), iki yönlü pano, ses, kilit ekranından giriş ve kesintisiz geçiş doğrulandı. |
-| Sway, river, labwc, niri, Wayfire (wlroots) | **Test edilmedi.** Aynı Wayland protokollerini kullandığı için çalışması beklenir. |
-| KDE Plasma 6 (KWin) | **Yazıldı, test edilmedi.** Yakalama KWin'in kendi ekran yayınıyla (`zkde_screencast`), giriş `fake_input` ile, pano aynı. Karşılama ekranı (SDDM) ve girişte kesintisiz geçiş yok. |
-| GNOME (Mutter) | **Test edilmedi.** CRD host'u GNOME'da Mutter'ın kendi uzak masaüstü arayüzünü kullanır; `kur.sh` onu açık oturumda başlatan bir kullanıcı birimi kurar. Karşılama ekranı (GDM) desteklenmez. |
-| Birden çok monitör | Henüz yok: tek çıktı aktarılır (`CRD_OUTPUT` ile seçilir). |
-| Dosya aktarımı | Henüz yok. |
+| Hyprland 0.56 (CachyOS, greetd + dms-greeter) | **Works.** Video, mouse, keyboard (incl. Turkish layout), two-way clipboard, audio, login from the lock screen and seamless handover verified. |
+| Sway, river, labwc, niri, Wayfire (wlroots) | **Untested.** Uses the same Wayland protocols, so it is expected to work. |
+| KDE Plasma 6 (KWin) | **Written, untested.** Capture via KWin's own screencast (`zkde_screencast`), input via `fake_input`, same clipboard. No greeter (SDDM) and no seamless handover at login. |
+| GNOME (Mutter) | **Untested.** On GNOME the CRD host uses Mutter's own remote desktop interface; `kur.sh` installs a user unit that starts it in your session. Greeter (GDM) is not supported. |
+| Multiple monitors | Not yet: one output is shared (chosen with `CRD_OUTPUT`). |
+| File transfer | Not yet. |
 
-Test edilmemiş bir ortamda denediyseniz sonucu (çalıştı ya da çalışmadı, günlüklerle) bir issue olarak yazın. En çok ihtiyaç duyulan katkı bu.
+Per-environment details and sources: [docs/DE-DESIGN.md](docs/DE-DESIGN.md).
 
-## Nasıl çalışır
+If you try it on an untested environment, please open an issue with the result (works or not, with logs). That is the most useful contribution right now.
 
-CRD host'unun Linux sürümü, Wayland'de ekranı ve girişi xdg-desktop-portal üzerinden almayı zaten biliyor (PipeWire + libei/EIS). Eksik olan, izin penceresi açmadan ve karşılama ekranında da çalışan bir portal. Bu proje o portalı yazıyor ve host'a yalnız ona özel bir D-Bus üzerinden veriyor; masaüstünüzün kendi portalı değişmez.
+## How it works
+
+The Linux CRD host already knows how to get the screen and input on Wayland through xdg-desktop-portal (PipeWire + libei/EIS). What is missing is a portal that needs no permission dialog and also works on the greeter. This project implements that portal and gives it to the host only, over a private D-Bus; your desktop's own portal is untouched.
 
 ```
-chrome-remote-desktop-host (Google'ın değiştirilmemiş ikilisi)
-        │  özel D-Bus (xdg-dbus-proxy)
+chrome-remote-desktop-host (Google's unmodified binary)
+        │  private D-Bus (xdg-dbus-proxy)
         ▼
-crd-portal ── RemoteDesktop / ScreenCast / Clipboard portal arayüzleri
-   ├─ yakalama: ext-image-copy-capture → PipeWire düğümü
-   ├─ giriş: EIS sunucusu → zwlr_virtual_pointer / zwp_virtual_keyboard
-   ├─ pano: ext-data-control / wlr-data-control
-   └─ ses: varsayılan hoparlörün monitörü → host'un ses borusu
+crd-portal ── RemoteDesktop / ScreenCast / Clipboard portal interfaces
+   ├─ capture: ext-image-copy-capture → PipeWire node
+   │           (KWin: zkde_screencast stream)
+   ├─ input: EIS server → zwlr_virtual_pointer / zwp_virtual_keyboard
+   │         (KWin: org_kde_kwin_fake_input)
+   ├─ clipboard: ext-data-control / wlr-data-control
+   └─ audio: default speaker monitor → host audio pipe
         ▲
-crd-koltuk (systemd sistem birimi)
-   karşılama ekranı ↔ masaüstü geçişini izler; geçişte host'u öldürmez,
-   yakalama/giriş/pano yeni kompozitöre yeniden bağlanır
+crd-koltuk (systemd system unit)
+   follows greeter ↔ desktop handover; does not kill the host,
+   capture/input/clipboard reconnect to the new compositor
 ```
 
-| Klasör | İş |
+| Directory | Purpose |
 |---|---|
-| `src/oturum` | Açılış: `crd-koltuk.sh`, systemd birimi, gtk için boş Wayland soketi |
-| `src/portal` | Portal sunucusu (`crd-portal`) |
-| `src/capture` | Ekran yakalama ve PipeWire düğümü |
-| `src/cikti` | Wayland çıktısını bulma ve seçme |
-| `src/eis`, `src/giris`, `src/olay` | Uzak fare ve klavye |
-| `src/clipboard` | Pano |
-| `src/ses` | Ses |
-| `src/proxy` | Host'a özel D-Bus |
-| `src/netmon` | Portalın ağ izleme arayüzü |
-| `third_party/chromium-157` | Arayüzlerin karşılaştırıldığı Chromium kaynak dosyaları (BSD lisansı) |
+| `src/oturum` | Startup: `crd-koltuk.sh`, systemd unit, empty Wayland socket for GTK |
+| `src/portal` | Portal server (`crd-portal`) |
+| `src/capture` | Screen capture and PipeWire node |
+| `src/cikti` | Finding and choosing the Wayland output |
+| `src/eis`, `src/giris`, `src/olay` | Remote mouse and keyboard |
+| `src/clipboard` | Clipboard |
+| `src/ses` | Audio |
+| `src/proxy` | Private D-Bus for the host |
+| `src/netmon` | Portal network monitor interface |
+| `src/gnome` | GNOME: starts the host in your session |
+| `third_party/chromium-157` | Chromium sources the interfaces were checked against (BSD license) |
 
-## Kurulum
+Source comments and log messages are in Turkish.
 
-Gereken: Wayland oturumu, PipeWire + WirePlumber, libei, xdg-dbus-proxy, derleyici. Google'ın CRD paketi depoda yok; kurulum betiği resmî paketi Google'dan kendi makinenize indirir ve sisteme kurmadan açar.
+## Installation
+
+You need a Wayland session, PipeWire + WirePlumber, libei, xdg-dbus-proxy and a C toolchain. Google's CRD package is not in this repository; the installer downloads the official package from Google to your machine and unpacks it without installing it system-wide.
 
 ```bash
-./kur.sh denetle
+./kur.sh check
 ```
 
 ```bash
-./kur.sh kur
+./kur.sh install
 ```
 
-Her komut `--deneme` ile yalnız ne yapacağını yazar. Hyprland dışındaki ortamlarda betik uyarır ve yalnız `--deneysel` ile devam eder.
+Add `--dry-run` to any command to only print what it would do. On anything other than Hyprland the script warns and continues only with `--experimental`. (Turkish aliases also work: `denetle`, `kur`, `kaldir`, `--deneme`, `--deneysel`.)
 
-Host'un Google hesabınıza kaydı ayrı bir adımdır: [remotedesktop.google.com/headless](https://remotedesktop.google.com/headless) sayfasındaki komutu kurulum betiğinin yazdığı yoldaki ikiliyle çalıştırırsınız. PIN ve kod hiçbir günlüğe yazılmaz.
+Registering the host with your Google account is a separate step: take the command from [remotedesktop.google.com/headless](https://remotedesktop.google.com/headless) and run it with the binary path the installer prints. The code and PIN are never written to any log.
 
-Kaldırmak için:
+To remove:
 
 ```bash
-./kur.sh kaldir
+./kur.sh uninstall
 ```
 
-## Ayarlar
+## Settings
 
-| Değişken | Anlamı |
+| Variable | Meaning |
 |---|---|
-| `CRD_OUTPUT` | Aktarılacak çıktının adı (ör. `HDMI-A-1`). Verilmezse tek çıktı, birden çoksa mantıksal 0,0'daki çıktı. |
+| `CRD_OUTPUT` | Name of the output to share (e.g. `HDMI-A-1`). If unset: the only output, or with several, the one at logical 0,0. |
 
-Klavye düzeni kompozitörün etkin haritasından okunur; ayrıca ayar gerekmez.
+The keyboard layout is read from the compositor's active keymap; no setting is needed.
 
-## Bilinen sınırlar
+## Known limits
 
-- Tek monitör aktarılır.
-- Host, ekranı paylaşılan kullanıcı adına çalışır; karşılama ekranında görüntü almak için karşılama kompozitörünün soketine ACL ile erişim verilir.
-- Ekran boyutu bağlantı sırasında değişirse akış yeniden kurulur; bu yol test edilmedi.
+- One monitor is shared.
+- The host runs as the user whose screen is shared; to capture the greeter, that user gets ACL access to the greeter compositor's socket.
+- If the screen size changes during a connection the stream is rebuilt; this path is untested.
 
-## Lisans
+## License
 
-GPL-3.0-or-later; tam metin [LICENSE](LICENSE).
+GPL-3.0-or-later; full text in [LICENSE](LICENSE).
 
-Başka kaynaklardan gelen dosyalar kendi lisanslarıyla kalır:
+Files from other sources keep their own licenses:
 
-- `third_party/chromium-157`: Chromium kaynak dosyaları, BSD tarzı lisans (dosya başlıklarında).
+- `third_party/chromium-157`: Chromium source files, BSD-style license (in file headers).
 - `src/capture/proto/zkde-screencast-unstable-v1.xml`, `src/giris/proto/fake-input.xml`: KDE plasma-wayland-protocols, LGPL-2.1-or-later.
-- `src/giris/proto/*.xml` (wlroots ve virtual-keyboard protokolleri): dosya başlıklarındaki lisans.
+- `src/giris/proto/*.xml` (wlroots and virtual-keyboard protocols): license in file headers.
 
-Chrome Remote Desktop host'u Google'ın ikilisidir ve bu depoda yer almaz; `kur.sh` onu Google'ın resmî adresinden kullanıcının kendi makinesine indirir.
+The Chrome Remote Desktop host is Google's binary and is not part of this repository; `kur.sh` downloads it from Google's official address to the user's own machine.

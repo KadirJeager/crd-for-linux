@@ -1,5 +1,7 @@
 # Diğer masaüstü ortamları: araştırma ve arka uç tasarımı
 
+[English](DE-DESIGN.md) · **Türkçe**
+
 Kaynaklar 30 Ekim 2026'da okundu. Sürüm satırları o günkü resmî depolardan alındı. Bu makinede yalnız Hyprland 0.56 çalışıyor; aşağıdaki ortamların hiçbiri burada denenmedi.
 
 ## Özet
@@ -35,28 +37,13 @@ Ortak kalan:
 - `src/ses`: PipeWire hoparlör monitörü.
 - `src/cikti`: çıktı seçme kuralı. Kural aynı kalır, çıktı listesinin kaynağı arka uca göre değişir.
 
-Arka uca ayrılan, C arayüzü taslağı:
+- `src/clipboard`: her arka uçta `ext-data-control-v1` (ve `wlr-data-control`).
 
-```c
-struct crd_arka_uc {
-	const char *ad;                 /* "wlroots", "kwin" */
-	/* Bu kompozitörde gereken bütün global'ler varsa 1. */
-	int  (*uygun)(struct wl_display *d);
-	/* Seçilen çıktı için PipeWire düğümü üretir ya da kompozitörün
-	   ürettiği düğümü döndürür. Kimlik ve boyut crd_stream_info'ya yazılır. */
-	int  (*yakala_baslat)(const struct crd_cikti *c, struct crd_stream_info *out);
-	void (*yakala_durdur)(void);
-	/* Mutlak konum çıktı koordinatında; tuş evdev kodu. */
-	int  (*fare_mutlak)(double x, double y);
-	int  (*fare_dugme)(uint32_t dugme, int basili);
-	int  (*fare_teker)(double dx, double dy, int ayrik);
-	int  (*tus)(uint32_t evdev, int basili);
-	/* Koltuk değişince yeni sokete yeniden bağlanır; akış kimliği korunur. */
-	int  (*yeniden_baglan)(const char *wayland_soketi);
-};
-```
+Kompozitöre göre, duyurduğu global'lerden seçilen:
 
-Pano iki arka uçta da `ext-data-control-v1` ile aynıdır. `src/clipboard` ortak kalır.
+- `src/capture/capture.c`: `ext_image_copy_capture_manager_v1` ve yakalama kaynağı yöneticisi varsa süreç kendi PipeWire düğümünü açar ve kare kopyalar. Yoksa ve `zkde_screencast_unstable_v1` varsa (düğüm kimliği `created` olayıyla gelsin diye sürüm 5 bağlanır) KWin'den seçilen çıktıyı imleç bilgisiyle yayınlaması istenir, KWin'in düğüm kimliği host'a verilir; kare kopyalanmaz.
+- `src/giris/giris.c`: `zwlr_virtual_pointer_manager_v1` ve `zwp_virtual_keyboard_manager_v1` varsa onlar kullanılır. Yoksa ve `org_kde_kwin_fake_input` sürüm ≥ 4 varsa bir kez `authenticate` edilir; mutlak hareket (küresel mantıksal koordinat), düğme, eksen ve tuş ona gider. Yarım wlr seti KWin'e düşmez.
+- İkisi de tam değilse başlatma başarısız olur ve eksik global'ler adıyla günlüğe yazılır.
 
 KWin arka ucunda yakalama farklı çalışır: `zkde_screencast_unstable_v1.stream_output` ile KWin akışı kendisi yayımlar ve düğüm kimliğini `created` olayıyla verir. Bizim `capture.c` düğüm açmaz, kare kopyalamaz. Koltuk değişince KWin akışı kapanır; host'un bağı kopar. Kesintisiz geçiş için ya ara bir PipeWire düğümü (bugünkü düğüm, kaynağı KWin akışı) gerekir ya da bu ortamda geçiş desteklenmez. Önerilen: bugünkü düğümü koruyup KWin akışından beslemek; doğrulanmadı.
 
