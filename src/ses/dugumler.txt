@@ -1,0 +1,32 @@
+# Hyprland oturumu PipeWire ses düğümleri (pw-dump, PIPEWIRE_RUNTIME_DIR=/run/user/1000)
+# Soket: /run/user/1000/pipewire-0
+# Ölçüm: 2026-10-29 — yalnız mevcut Audio/Sink ve Audio/Source
+
+[id=60]
+media.class=Audio/Sink
+node.name=alsa_output.pci-0000_01_00.1.hdmi-stereo
+node.description=GB205 High Definition Audio Controller Sayısal Stereo (HDMI) [CB272U E3]
+
+[id=61]
+media.class=Audio/Sink
+node.name=alsa_output.usb-SteelSeries_SteelSeries_Arctis_Nova_5-00.analog-stereo
+node.description=SteelSeries Arctis Nova 5 Analog Stereo
+
+[id=62]
+media.class=Audio/Source
+node.name=alsa_input.usb-SteelSeries_SteelSeries_Arctis_Nova_5-00.mono-fallback
+node.description=SteelSeries Arctis Nova 5 Tek Kanallı
+
+[id=63]
+media.class=Audio/Source
+node.name=alsa_input.usb-Alpha_Imaging_Tech._Corp._HP_FHD_Webcam_620_625_C1Y311XV3V-03.analog-stereo
+node.description=HP FHD Webcam 620/625 Analog Stereo
+
+[varsayilan]
+# metadata.name=default (pw-dump), düğüm listesinde doğrulandı
+default.audio.sink.node.id=60
+default.audio.sink.node.name=alsa_output.pci-0000_01_00.1.hdmi-stereo
+default.audio.sink.media.class=Audio/Sink
+default.audio.source.node.id=63
+default.audio.source.node.name=alsa_input.usb-Alpha_Imaging_Tech._Corp._HP_FHD_Webcam_620_625_C1Y311XV3V-03.analog-stereo
+default.audio.source.media.class=Audio/Source

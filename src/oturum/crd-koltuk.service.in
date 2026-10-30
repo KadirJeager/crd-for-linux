@@ -1,0 +1,18 @@
+# kur.sh bu şablondan /etc/systemd/system/crd-koltuk.service üretir.
+[Unit]
+Description=CRD for Linux koltuk izleyici
+After=greetd.service systemd-user-sessions.service user@@UID@.service
+Wants=user@@UID@.service
+Conflicts=chrome-remote-desktop.service
+
+[Service]
+Type=simple
+Environment=CRD_HOST_USER=@USER@
+ExecStart=/usr/bin/bash "@ROOT@/src/oturum/crd-koltuk.sh"
+Restart=on-failure
+RestartSec=2
+RuntimeDirectory=crd-for-linux
+KillMode=control-group
+
+[Install]
+WantedBy=multi-user.target

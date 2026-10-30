@@ -1,0 +1,28 @@
+# Derleme çıktıları
+*.o
+*.a
+__pycache__/
+src/giris/giris-olc
+src/giris/keymap-yedek
+src/netmon/crd-netmon
+src/capture/olc
+src/clipboard/pano_test
+src/eis/test_eis_client
+src/olay/olay-olc
+src/oturum/gtk-ekran
+src/portal/clip-io
+src/portal/crd-portal
+src/portal/eis-probe
+src/portal/frame-al
+src/proxy/crd-portal
+
+# Google'ın paketi ve açılmış hali yeniden dağıtılmaz
+third_party/*.deb
+third_party/unpacked/
+
+# Büyük kare dökümleri ve günlükler
+*.ppm
+*.log
+
+# Ölçüm araçlarının yazdığı yerel kanıtlar
+kanit/

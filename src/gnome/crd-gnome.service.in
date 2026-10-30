@@ -1,0 +1,16 @@
+# kur.sh bu şablondan ~/.config/systemd/user/crd-gnome.service üretir.
+# GNOME'da CRD host'u Mutter'ın RemoteDesktop/ScreenCast arayüzlerini kendisi
+# kullanır; portal ve vekil açılmaz. Karşılama ekranı (GDM) desteklenmez.
+[Unit]
+Description=CRD for Linux (GNOME oturumu)
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/bash "@ROOT@/src/gnome/crd-gnome.sh"
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target
