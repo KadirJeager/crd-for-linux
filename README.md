@@ -101,6 +101,7 @@ The keyboard layout is read from the compositor's active keymap; no setting is n
 - One monitor is shared.
 - The host runs as the user whose screen is shared; to capture the greeter, that user gets ACL access to the greeter compositor's socket.
 - If the screen size changes during a connection the stream is rebuilt; this path is untested.
+- The client's on-screen keyboard (the panel with Esc, F keys, Ctrl, Win, Alt) opens empty. The client draws its keys from the keyboard layout the host sends, and the CRD host's portal path never connects its layout monitor to the input session (`PortalInteractionStrategy::CreateKeyboardLayoutMonitor` in Chromium; the GNOME path does call `SetKeyboardLayoutMonitor`), so it always sends an empty layout. This is in Google's host, not in this project. Typing with the phone's own keyboard works.
 
 ## License
 

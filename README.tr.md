@@ -97,6 +97,7 @@ Klavye düzeni kompozitörün etkin haritasından okunur; ayrıca ayar gerekmez.
 - Tek monitör aktarılır.
 - Host, ekranı paylaşılan kullanıcı adına çalışır; karşılama ekranında görüntü almak için karşılama kompozitörünün soketine ACL ile erişim verilir.
 - Ekran boyutu bağlantı sırasında değişirse akış yeniden kurulur; bu yol test edilmedi.
+- İstemcinin ekran klavyesi (Esc, F tuşları, Ctrl, Win, Alt olan panel) boş açılır. İstemci tuşları host'un gönderdiği klavye düzeninden çizer; CRD host'unun portal yolu düzen izleyicisini giriş oturumuna hiç bağlamaz (Chromium'da `PortalInteractionStrategy::CreateKeyboardLayoutMonitor`; GNOME yolu `SetKeyboardLayoutMonitor` çağırır), bu yüzden hep boş düzen gider. Sorun Google'ın host'unda, bu projede değil. Telefonun kendi klavyesiyle yazmak çalışır.
 
 ## Lisans
 
